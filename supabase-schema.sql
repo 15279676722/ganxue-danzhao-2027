@@ -1,5 +1,7 @@
 -- 赣学单招学习系统 Supabase 数据库结构
--- 在 Supabase Dashboard → SQL Editor 中整段执行一次。
+-- 在 Supabase Dashboard -> SQL Editor 中整段执行一次。
+-- 新库执行完本文件后，再执行 supabase-seed-questions.sql。
+-- 公共/私人题库说明见 SETUP_SUPABASE.md。
 
 create extension if not exists pgcrypto;
 
@@ -16,6 +18,7 @@ create table if not exists public.profiles (
   role text not null check (role in ('parent', 'child')),
   full_name text not null default '',
   family_id uuid not null references public.families(id),
+  is_admin boolean not null default false,
   created_at timestamptz not null default now()
 );
 
@@ -33,6 +36,9 @@ create table if not exists public.questions (
   explanation text not null default '',
   source text not null default '',
   source_level text not null default '',
+  visibility text not null default 'public' check (visibility in ('public', 'private')),
+  owner_id uuid references auth.users(id),
+  family_id uuid references public.families(id),
   updated_at timestamptz not null default now()
 );
 
@@ -54,6 +60,8 @@ create table if not exists public.wrong_book (
 
 create index if not exists idx_questions_subject on public.questions(subject);
 create index if not exists idx_questions_knowledge on public.questions(knowledge_point);
+create index if not exists idx_questions_family on public.questions(family_id);
+create index if not exists idx_questions_visibility on public.questions(visibility);
 create index if not exists idx_attempts_student_ts on public.attempts(student_id, ts desc);
 create index if not exists idx_wrong_student on public.wrong_book(student_id);
 
@@ -89,7 +97,7 @@ as $$
 declare
   user_role text := lower(coalesce(new.raw_user_meta_data ->> 'role', 'child'));
   user_name text := coalesce(nullif(new.raw_user_meta_data ->> 'full_name', ''), case user_role when 'parent' then '家长' else '孩子' end);
-  family_code text := upper(trim(coalesce(new.raw_user_meta_data ->> 'family_code', '')));
+  family_code text := upper(trim(coalesce(new.raw_meta_data ->> 'family_code', '')));
   family_id uuid;
 begin
   if user_role not in ('parent', 'child') then
@@ -154,6 +162,19 @@ as $$
   );
 $$;
 
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(
+    (select is_admin from public.profiles where id = auth.uid()),
+    false
+  );
+$$;
+
 alter table public.families enable row level security;
 alter table public.profiles enable row level security;
 alter table public.questions enable row level security;
@@ -178,27 +199,58 @@ create policy profiles_self_update on public.profiles
   using (id = auth.uid())
   with check (id = auth.uid());
 
--- 题库：登录后可读；仅家长可维护
-drop policy if exists questions_authenticated_select on public.questions;
-create policy questions_authenticated_select on public.questions
+-- 题库：公共题所有登录用户可读；私人题仅同家庭成员可读
+drop policy if exists questions_visible_select on public.questions;
+create policy questions_visible_select on public.questions
   for select to authenticated
-  using (true);
+  using (
+    visibility = 'public'
+    or family_id = public.current_family_id()
+  );
 
-drop policy if exists questions_parent_insert on public.questions;
-create policy questions_parent_insert on public.questions
+-- 新增：只有管理员能新增公共题；家长只能给自己家庭新增私人题
+drop policy if exists questions_managed_insert on public.questions;
+create policy questions_managed_insert on public.questions
   for insert to authenticated
-  with check (public.is_parent());
+  with check (
+    (visibility = 'public' and public.is_admin())
+    or
+    (visibility = 'private'
+      and public.is_parent()
+      and family_id = public.current_family_id()
+      and owner_id = auth.uid())
+  );
 
-drop policy if exists questions_parent_update on public.questions;
-create policy questions_parent_update on public.questions
+-- 修改：公共题仅管理员；私人题仅同家庭家长
+drop policy if exists questions_managed_update on public.questions;
+create policy questions_managed_update on public.questions
   for update to authenticated
-  using (public.is_parent())
-  with check (public.is_parent());
+  using (
+    (visibility = 'public' and public.is_admin())
+    or
+    (visibility = 'private'
+      and public.is_parent()
+      and family_id = public.current_family_id())
+  )
+  with check (
+    (visibility = 'public' and public.is_admin())
+    or
+    (visibility = 'private'
+      and public.is_parent()
+      and family_id = public.current_family_id())
+  );
 
-drop policy if exists questions_parent_delete on public.questions;
-create policy questions_parent_delete on public.questions
+-- 删除：公共题仅管理员；私人题仅同家庭家长
+drop policy if exists questions_managed_delete on public.questions;
+create policy questions_managed_delete on public.questions
   for delete to authenticated
-  using (public.is_parent());
+  using (
+    (visibility = 'public' and public.is_admin())
+    or
+    (visibility = 'private'
+      and public.is_parent()
+      and family_id = public.current_family_id())
+  );
 
 -- 做题记录：本人可写；本人和同家庭家长可读
 drop policy if exists attempts_select on public.attempts;

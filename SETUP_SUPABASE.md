@@ -47,6 +47,28 @@ Supabase 后台已配置：
 
 如果以前收到的重置邮件打开是 404，那是旧邮件使用了旧跳转地址；重新点击一次“忘记密码”获取新邮件即可。
 
+## 公共题库和私人题库
+
+- **公共题库**：所有家庭共用，目前 80 道官方题。只有管理员能新增、修改、删除；普通家长只能看到“只读”。
+- **私人题库**：属于某个家庭，家长在“题库管理”里新增题目、或在“题库更新”里批量导入 JSON，都会自动进入自己的私人题库；家庭里的孩子能看到公共题加自家私人题，看不到其他家庭的私人题。
+- 家长在“题库更新”页点 **把题目同步到我的私人题库** 即可把本机题目同步到云端；管理员额外有 **发布/更新公共题库** 按钮。
+
+### 查看或更换管理员
+
+第一个注册的家长在执行 `supabase-private-banks.sql` 时已被自动设为管理员。以后要更换或追加管理员，在 SQL Editor 执行（把邮箱换成家长注册邮箱）：
+
+```sql
+update public.profiles set is_admin = true
+where id = (select id from auth.users where email = '家长邮箱@example.com');
+```
+
+取消管理员：
+
+```sql
+update public.profiles set is_admin = false
+where id = (select id from auth.users where email = '家长邮箱@example.com');
+```
+
 ## 管理员换 Supabase 项目时才需要做
 
 如果以后更换 Supabase 项目，才需要执行下面步骤。
@@ -57,8 +79,10 @@ Supabase 后台已配置：
    - 试用阶段关闭 Confirm email。
 3. 在 **Authentication → URL Configuration** 中配置 GitHub Pages Site URL 和 Redirect URL。
 4. 在 SQL Editor 依次执行：
-   - `supabase-schema.sql`；
-   - `supabase-seed-questions.sql`。
+   - `supabase-schema.sql`（已包含公共/私人题库的字段和权限）；
+   - `supabase-seed-questions.sql`；
+   - 注册第一个家长账号后，如需让该账号管理公共题库，执行上面“查看或更换管理员”的 SQL。
+   - 注意：`supabase-private-banks.sql` 只用于 2026-10-24 之前建好的旧库升级，新库不要执行。
 5. 修改 `index.html` 中的内置配置：
 
 ```js
