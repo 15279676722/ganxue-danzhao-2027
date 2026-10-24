@@ -67,11 +67,15 @@ https://15279676722.github.io/ganxue-danzhao-2027/**
 4. 点击 **保存云端配置**。
 5. 退出登录，回到登录页。
 
-这两个值在 Supabase 的 **Project Settings → API** 中可以找到。
+Project URL 和公钥按新版 Supabase 后台获取：
+
+1. 进入项目后，点击页面顶部的 **Connect**。
+2. 在连接弹窗中复制 **Project URL**（形如 `https://xxxxx.supabase.co`）和 **Publishable key**（形如 `sb_publishable_...`）。
+3. 如果项目仍显示旧版密钥，进入 **Project Settings → API Keys → Legacy API Keys**，复制 **anon / public** 密钥（通常以 `eyJ` 开头）。
 
 注意：
 
-- `anon public key` 是给浏览器使用的公开客户端密钥，可以暴露在前端。
+- `Publishable key` 和旧版 `anon public key` 都是给浏览器使用的公开客户端密钥，可以暴露在前端。
 - 数据库安全由 RLS 行级权限策略控制。
 - **绝对不要把 `service_role key` 填进网页，也不要发给任何人。**
 
