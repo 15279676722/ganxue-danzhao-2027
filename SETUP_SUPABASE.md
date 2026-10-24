@@ -71,7 +71,14 @@ Project URL 和公钥按新版 Supabase 后台获取：
 
 1. 进入项目后，点击页面顶部的 **Connect**。
 2. 在连接弹窗中复制 **Project URL**（形如 `https://xxxxx.supabase.co`）和 **Publishable key**（形如 `sb_publishable_...`）。
-3. 如果项目仍显示旧版密钥，进入 **Project Settings → API Keys → Legacy API Keys**，复制 **anon / public** 密钥（通常以 `eyJ` 开头）。
+3. 如果在新版后台找不到 Project URL，进入 **Project Settings → General**，复制 **Project ID**，然后按下面格式自己拼出 Project URL：
+
+```text
+https://你的-Project-ID.supabase.co
+```
+
+例如 Project ID 是 `abcdefghijk`，Project URL 就是 `https://abcdefghijk.supabase.co`。注意末尾不要加 `/rest/v1/`。
+4. 如果项目仍显示旧版密钥，进入 **Project Settings → API Keys → Legacy API Keys**，复制 **anon / public** 密钥（通常以 `eyJ` 开头）。
 
 注意：
 
